@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>集中タイマー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#E6EAEC;--surface:#D6DDE1;--ink:#1F2B33;--muted:#5A6972;--accent:#A06C18;--accent-soft:rgba(160,108,24,.18);--sage:#4A746C;--line:#B6C1C6;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1B262D;--surface:#263843;--ink:#E8E4D9;--muted:#93A2A9;--accent:#E3B45E;--accent-soft:rgba(227,180,94,.18);--sage:#88B2A9;--line:#3A5662;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1B262D;--surface:#263843;--ink:#E8E4D9;--muted:#93A2A9;--accent:#E3B45E;--accent-soft:rgba(227,180,94,.18);--sage:#88B2A9;--line:#3A5662;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;line-height:1.7;-webkit-font-smoothing:antialiased}
+.wrap{max-width:30rem;margin:0 auto;padding:1.25rem 1.25rem 2.5rem}
+header{display:flex;justify-content:space-between;align-items:baseline}
+h1{font-size:1.05rem;font-weight:700;margin:0;letter-spacing:.08em}
+.today{font-size:.9rem;color:var(--muted)}
+.clock{text-align:center;margin:2.25rem 0 .25rem}
+.time{font-size:clamp(4.25rem,21vw,7rem);font-weight:300;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.sub{margin-top:.8rem;color:var(--muted);font-size:.95rem;min-height:1.7em;font-variant-numeric:tabular-nums}
+.sub strong{color:var(--ink);font-weight:500;font-size:1.1rem}
+.msg{text-align:center;margin:1.1rem auto 0;max-width:22rem;font-size:1rem;min-height:3.4em}
+.trackwrap{margin:1.5rem .75rem 0;padding-bottom:1.9rem}
+.track{position:relative;height:10px;border-radius:5px;background:var(--surface)}
+.zone{position:absolute;left:0;top:-6px;bottom:-6px;background:var(--accent-soft);border-radius:7px 0 0 7px}
+.fill{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--accent);width:0;transition:width .3s linear}
+.mk{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--bg);border:2px solid var(--line)}
+.mk.on{border-color:var(--accent);background:var(--accent)}
+.mk span{position:absolute;top:20px;left:50%;transform:translateX(-50%);font-size:.78rem;color:var(--muted);white-space:nowrap}
+.mk.on span{color:var(--ink)}
+.actions{display:flex;gap:.75rem;justify-content:center;margin-top:1.5rem}
+.btn{font:inherit;font-size:1.05rem;font-weight:500;border-radius:14px;padding:.85rem 1.5rem;min-width:8.5rem;cursor:pointer;border:2px solid var(--ink);background:transparent;color:var(--ink)}
+.btn.primary{background:var(--ink);color:var(--bg)}
+.settings{margin-top:2.5rem;border-top:1px solid var(--line);padding-top:1.5rem;display:grid;gap:1.4rem}
+.group h2{font-size:.85rem;font-weight:500;color:var(--muted);margin:0 0 .5rem}
+.chips{display:flex;flex-wrap:wrap;gap:.5rem}
+.chip{font:inherit;font-size:.95rem;padding:.45rem .95rem;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--sage);border-color:var(--sage);color:var(--bg)}
+.chip:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;align-items:center;gap:1rem}
+input[type=range]{flex:1;accent-color:var(--sage)}
+.link{font:inherit;font-size:.9rem;background:none;border:none;color:var(--sage);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:.25rem 0;white-space:nowrap}
+.result{margin:1rem auto 0;max-width:20rem;display:grid;grid-template-columns:auto 1fr;gap:.3rem 1.1rem;font-size:.95rem;font-variant-numeric:tabular-nums}
+.result dt{color:var(--muted)}
+.result dd{margin:0}
+.result strong{font-size:1.15rem;font-weight:500;color:var(--accent)}
+.result small{display:block;color:var(--muted);font-size:.85rem}
+.modes{display:flex;gap:.5rem;margin-top:1rem}
+body.sleep .focus-only{display:none}
+body:not(.sleep) .sleep-only{display:none}
+body.chime-off .chime-only{display:none}
+.night{position:fixed;inset:0;background:#05080A;color:#5E6B72;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;cursor:pointer;z-index:10}
+.night[hidden]{display:none}
+.night .nt{font-size:2.5rem;font-weight:300;font-variant-numeric:tabular-nums}
+.night .nh{font-size:.85rem;color:#3E4A50}
+.warn{margin:1rem auto 0;max-width:22rem;font-size:.88rem;color:var(--accent);border:1px solid var(--accent);border-radius:12px;padding:.6rem .9rem}
+.custom{display:flex;align-items:center;gap:.5rem;margin-top:.75rem}
+.custom input{font:inherit;font-size:1.1rem;width:5.5rem;text-align:center;padding:.4rem .5rem;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink);font-variant-numeric:tabular-nums}
+.custom input:disabled,.step:disabled{opacity:.45}
+.step{font:inherit;font-size:1.2rem;width:2.6rem;height:2.6rem;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.phase{margin-top:.35rem;font-size:.82rem;color:var(--sage)}
+.note{font-size:.85rem;color:var(--muted);margin:.5rem 0 0}
+.endrow label{font-size:.9rem;color:var(--muted)}
+.endrow input{width:7.5rem}
+.now{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.legend{font-size:.88rem;color:var(--muted);margin:0;display:grid;grid-template-columns:auto 1fr;gap:.15rem 1.1rem}
+.legend dt{color:var(--ink)}
+.legend dd{margin:0}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 1rem);transform:translate(-50%,-10px);background:var(--ink);color:var(--bg);padding:.5rem 1.2rem;border-radius:999px;font-size:.95rem;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.fill,.toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>集中タイマー</h1>
+    <div class="today" id="today">今日 0分</div>
+  </header>
+  <div class="modes chips" id="modeChips">
+    <button class="chip" data-mode="focus">集中モード</button>
+    <button class="chip" data-mode="sleep">睡眠モード</button>
+  </div>
+
+  <section class="clock" aria-live="off">
+    <div class="time" id="time">00:00</div>
+    <div class="sub" id="sub"></div>
+    <div class="phase" id="phase" hidden></div>
+  </section>
+
+  <p class="msg" id="msg"></p>
+  <p class="warn" id="warn" hidden>この環境では、画面が消えるのを止められませんでした。画面が消えると音も止まるので、使っている間はスマホの「自動ロック」を「なし」にしてください。</p>
+  <dl class="result" id="result" hidden></dl>
+
+  <div class="trackwrap focus-only"><div class="track" id="track"></div></div>
+
+  <div class="actions" id="actions"></div>
+
+  <section class="settings">
+    <div class="group focus-only">
+      <h2>目標時間</h2>
+      <div class="chips" id="goalChips">
+        <button class="chip" data-goal="10">10分</button>
+        <button class="chip" data-goal="30">30分</button>
+        <button class="chip" data-goal="60">1時間</button>
+        <button class="chip" data-goal="0">目標なし</button>
+      </div>
+      <div class="custom">
+        <button class="step" id="goalMinus" aria-label="1分へらす">−</button>
+        <input type="number" id="goalInput" min="1" max="720" step="1" inputmode="numeric" aria-label="目標時間（分）">
+        <span>分</span>
+        <button class="step" id="goalPlus" aria-label="1分ふやす">＋</button>
+      </div>
+      <div class="custom endrow">
+        <label for="endInput">終了時刻で決める</label>
+        <input type="time" id="endInput">
+        <span class="now" id="nowClock"></span>
+      </div>
+    </div>
+    <div class="group">
+      <h2>BGM</h2>
+      <div class="chips" id="bgmChips">
+        <button class="chip" data-bgm="brown">ブラウンノイズ</button>
+        <button class="chip" data-bgm="pink">ピンクノイズ</button>
+        <button class="chip" data-bgm="electro">夜のエレクトロ</button>
+        <button class="chip" data-bgm="electroSlow">夜のエレクトロ（スロー）</button>
+        <button class="chip" data-bgm="none">なし</button>
+      </div>
+    </div>
+    <div class="group">
+      <h2>BGMの変化</h2>
+      <div class="chips"><button class="chip" id="autoChip">時間の流れで変化させる</button></div>
+      <p class="note focus-only">最初はフル編成で気分を上げ、3分で飾りの音が抜け、10分でドラムが消え、30分で和音中心の静かな音になります。変化は5秒ほどで切り替わります。</p>
+      <p class="note sleep-only">2分・15分と進むにつれて、BGMを少しずつ小さく、静かにしていきます。</p>
+    </div>
+    <div class="group">
+      <h2>BGMの音量</h2>
+      <div class="row">
+        <input type="range" id="vol" min="0" max="1" step="0.01" aria-label="BGMの音量">
+      </div>
+    </div>
+    <div class="group">
+      <h2>通知音</h2>
+      <div class="chips" id="chimeToggle">
+        <button class="chip" data-chime="on">オン</button>
+        <button class="chip" data-chime="off">オフ</button>
+      </div>
+    </div>
+    <div class="group chime-only">
+      <h2>通知音の音量</h2>
+      <div class="row">
+        <input type="range" id="cvol" min="0" max="1" step="0.01" aria-label="通知音の音量">
+        <button class="link" id="testChime">通知音を試す</button>
+      </div>
+    </div>
+    <div class="group focus-only chime-only">
+      <h2>通知音を鳴らすタイミング</h2>
+      <div class="chips" id="cmodeChips">
+        <button class="chip" data-cmode="all">すべて</button>
+        <button class="chip" data-cmode="early">最初の10分だけ</button>
+        <button class="chip" data-cmode="goal">目標時間だけ</button>
+      </div>
+      <p class="note">10分以降の合図は、集中を切らないよう少し小さめに鳴ります。</p>
+    </div>
+    <div class="group sleep-only chime-only">
+      <h2>睡眠モードの合図</h2>
+      <dl class="legend">
+        <dt>2分</dt><dd>小さな音が1回</dd>
+        <dt>15分</dt><dd>小さな音が2回（これで最後です）</dd>
+        <dt>それ以降</dt><dd>通知はなく、BGMだけが流れ続けます</dd>
+      </dl>
+    </div>
+    <div class="group focus-only chime-only">
+      <h2>チャイムの合図</h2>
+      <dl class="legend">
+        <dt>2分</dt><dd>軽い音が1回</dd>
+        <dt>3分</dt><dd>軽い音が2回（最初の山を越えた合図）</dd>
+        <dt>5分</dt><dd>軽い音が3回</dd>
+        <dt>10分</dt><dd>鐘が1回</dd>
+        <dt>30分</dt><dd>鐘が2回</dd>
+        <dt>1時間</dt><dd>鐘が3回</dd>
+        <dt>目標時間</dt><dd>音が上がっていく4音（そのまま続けられます）</dd>
+      </dl>
+    </div>
+  </section>
+</div>
+<div class="night" id="night" hidden><div class="nt" id="nightTime">00:00</div><div class="nh">タップで操作を表示</div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(k); return v===null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+let goal = store.get('goal', 30);
+let bgm  = store.get('bgm', 'brown');
+if (!['brown','pink','electro','electroSlow','none'].includes(bgm)) bgm = 'brown';
+let vol  = store.get('vol', 0.6);
+let cvol = store.get('cvol', 0.85);
+let mode = store.get('mode', 'focus');
+if (mode==='sleep') goal = 0;
+let peek = false, peekTimer;
+
+const S = { status:'idle', startTs:0, realStart:0, pausedMs:0, pauseStart:0, finalMs:0, endReal:0, plannedEnd:0, goalReached:false, fired:new Set() };
+
+function elapsedMs(){
+  if (S.status==='idle') return 0;
+  if (S.status==='done') return S.finalMs;
+  const now = S.status==='paused' ? S.pauseStart : Date.now();
+  return now - S.startTs - S.pausedMs;
+}
+let endMode = store.get('endMode', false);
+let endAt = store.get('endAt', '');
+function endTarget(hhmmStr){
+  const [h, m] = hhmmStr.split(':').map(Number);
+  const now = new Date(), t = new Date(now);
+  t.setHours(h, m, 0, 0);
+  if (t <= now) t.setDate(t.getDate() + 1);
+  return t.getTime();
+}
+function minutesUntil(hhmmStr){ return (endTarget(hhmmStr) - Date.now()) / 60000; }
+let cmode = store.get('cmode', 'all');
+let chimeOn = store.get('chimeOn', false);
+function audible(key){
+  if (!chimeOn) return false;
+  if (key==='end' || mode==='sleep') return true;
+  if (cmode==='goal') return false;
+  if (cmode==='early') return key <= 10;
+  return true;
+}
+function milestones(){
+  if (mode==='sleep') return [2,15];
+  const out = [2,3,5,10,30,60];
+  for (let m=90; m<=480; m+=30) out.push(m);
+  return out.filter(m => m !== goal);
+}
+function fmtDur(ms){
+  const t = Math.round(Math.abs(ms)/1000), h = Math.floor(t/3600), m = Math.floor(t%3600/60), r = t%60;
+  if (h) return `${h}時間${m}分${r}秒`;
+  return m ? `${m}分${r}秒` : `${r}秒`;
+}
+const pad = n => String(n).padStart(2,'0');
+function fmt(sec){
+  const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = sec%60;
+  return h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+function hhmm(ts){ const d = new Date(ts); return `${d.getHours()}:${pad(d.getMinutes())}`; }
+function label(m){
+  m = Math.round(m);
+  if (m < 60) return `${m}分`;
+  const h = Math.floor(m/60), r = m%60;
+  return r ? `${h}時間${r}分` : `${h}時間`;
+}
+function todayKey(){ const d = new Date(); return `total:${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+
+/* ---------- Audio ---------- */
+const STEMS = ['pad','arp','bass','drums','top'];
+const STD_STEMS = { pad:.8, arp:1, bass:1, drums:1, top:0 };
+let curStems = { ...STD_STEMS };
+let ctx=null, master, duck, tone, phaseGain, chimeBus, bgmCur=null, scheduled=[];
+const bufCache = {};
+const FADE = 2048;
+
+function ensureCtx(){
+  if (!ctx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC();
+    master = ctx.createGain(); master.gain.value = vol;
+    duck = ctx.createGain();
+    tone = ctx.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 20000; tone.Q.value = 0;
+    phaseGain = ctx.createGain();
+    duck.connect(tone); tone.connect(phaseGain); phaseGain.connect(master);
+    master.connect(ctx.destination);
+    ctx.onstatechange = () => { if (S.status==='running' && ctx.state !== 'running') ctx.resume().catch(()=>{}); };
+    chimeBus = ctx.createGain(); chimeBus.gain.value = cvol; chimeBus.connect(ctx.destination);
+  }
+  if (ctx.state === 'suspended') ctx.resume();
+}
+function biquad(type,f){ const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; return b; }
+function gain(v){ const g = ctx.createGain(); g.gain.value = v; return g; }
+
+function noiseBuf(type){
+  if (bufCache[type]) return bufCache[type];
+  const len = ctx.sampleRate * 24;
+  const b = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let c=0; c<2; c++){
+    const d = b.getChannelData(c);
+    let last=0,b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for (let i=0; i<len; i++){
+      const w = Math.random()*2-1;
+      if (type==='brown'){ last = (last + 0.02*w)/1.02; d[i] = last*3.5; }
+      else if (type==='pink'){
+        b0=0.99886*b0+w*0.0555179; b1=0.99332*b1+w*0.0750759; b2=0.969*b2+w*0.153852;
+        b3=0.8665*b3+w*0.3104856; b4=0.55*b4+w*0.5329522; b5=-0.7616*b5-w*0.016898;
+        d[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11; b6=w*0.115926;
+      } else d[i] = w;
+    }
+    // blend the tail into the head so the loop has no seam
+    for (let i=0; i<FADE; i++){ const t=i/FADE; d[len-FADE+i] = d[len-FADE+i]*(1-t) + d[i]*t; }
+  }
+  bufCache[type] = b;
+  return b;
+}
+
+function startBGM(kind){
+  stopBGM();
+  if (kind==='none' || !ctx) return;
+  const t0 = ctx.currentTime;
+  const out = ctx.createGain();
+  out.gain.setValueAtTime(0, t0);
+  out.gain.linearRampToValueAtTime(1, t0+2.5);
+  out.connect(duck);
+  const nodes=[], timers=[];
+  const loopSrc = type => {
+    const s = ctx.createBufferSource(); const b = noiseBuf(type);
+    s.buffer = b; s.loop = true; s.loopStart = FADE/ctx.sampleRate; s.loopEnd = b.duration;
+    s.start(0, FADE/ctx.sampleRate + Math.random()*(b.duration-2)); nodes.push(s); return s;
+  };
+  const lfo = (freq, depth, target) => {
+    const o = ctx.createOscillator(); o.frequency.value = freq;
+    const g = gain(depth); o.connect(g); g.connect(target); o.start(); nodes.push(o);
+  };
+
+  if (kind==='brown'){
+    const s = loopSrc('brown');
+    s.connect(biquad('lowpass',1400)).connect(gain(0.8)).connect(out);
+  } else if (kind==='pink'){
+    const s2 = loopSrc('pink');
+    s2.connect(biquad('lowpass',7000)).connect(gain(0.55)).connect(out);
+  }
+  const me = { out, nodes, timers };
+  if (kind==='electro' || kind==='electroSlow'){
+    out.gain.cancelScheduledValues(t0); out.gain.setValueAtTime(0, t0);
+    const slow = kind==='electroSlow';
+    const jobs = STEMS.map(k => renderElectro(slow, k));
+    me.stems = {};
+    STEMS.forEach(k => { me.stems[k] = gain(curStems[k]); me.stems[k].connect(out); });
+    Promise.all(jobs.map(j => j.promise)).then(bufs => {
+      if (bgmCur !== me) return;
+      const t = ctx.currentTime + 0.05;
+      bufs.forEach((buf, i) => {
+        const src = ctx.createBufferSource();
+        src.buffer = buf; src.loop = true; src.loopStart = jobs[0].loopStart; src.loopEnd = jobs[0].loopEnd;
+        src.connect(me.stems[STEMS[i]]); src.start(t); nodes.push(src);
+      });
+      out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(1, t+2);
+    });
+  }
+  bgmCur = me;
+}
+
+/* Original night-electro loop: 4-bar intro (pad + arp), then kick, hats and bass join */
+/* Original night-electro, pre-rendered once into a buffer and looped sample-accurately.
+   Layout: 4-bar intro, then the 8-bar body twice. Playback loops the second body,
+   whose effect tails come from an identical body, so the seam is inaudible. */
+const electroCache = {};
+function renderElectro(slow, layer){
+  const key = (slow ? 'slow' : 'fast') + '-' + layer;
+  if (electroCache[key]) return electroCache[key];
+  const bpm = slow ? 82 : 118, spb = 60/bpm, s16 = spb/4, barDur = spb*4;
+  const INTRO = 4, LOOP = 8, TOTAL = INTRO + LOOP*2, sr = 44100;
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const o = new OAC(1, Math.ceil(sr*barDur*TOTAL), sr);
+  const G = v => { const g = o.createGain(); g.gain.value = v; return g; };
+  const F = (type,f) => { const b = o.createBiquadFilter(); b.type = type; b.frequency.value = f; return b; };
+  const prog = [[57,60,64,67],[53,57,60,64],[48,52,55,59],[52,55,59,62]];
+  const arpPat = [0,2,1,3, 2,0,3,1, 0,2,3,2, 1,3,2,0];
+  const mtof = m => 440*Math.pow(2,(m-69)/12);
+  const bus = G(0.9); bus.connect(o.destination);
+  const delay = o.createDelay(1); delay.delayTime.value = spb*0.75;
+  const fb = G(slow ? 0.38 : 0.28), wet = G(slow ? 0.3 : 0.22);
+  delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(bus);
+  const arpBus = G(1); arpBus.connect(bus); arpBus.connect(delay);
+  const white = o.createBuffer(1, sr, sr); { const d = white.getChannelData(0); for (let i=0;i<sr;i++) d[i] = Math.random()*2-1; }
+  const env = (g, t, peak, a, d) => { g.gain.value = 0; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t+a); g.gain.exponentialRampToValueAtTime(0.0001, t+d); };
+  const kick = t => {
+    const x = o.createOscillator(), g = o.createGain();
+    x.frequency.setValueAtTime(130, t); x.frequency.exponentialRampToValueAtTime(45, t+0.12);
+    env(g, t, slow ? 0.32 : 0.5, 0.004, 0.32); x.connect(g).connect(bus); x.start(t); x.stop(t+0.35);
+  };
+  const hat = (t, v) => {
+    const src = o.createBufferSource(); src.buffer = white;
+    const g = o.createGain(); env(g, t, v, 0.002, 0.05);
+    src.connect(F('highpass',7000)).connect(g).connect(bus); src.start(t, Math.random()*0.8, 0.08);
+  };
+  const openHat = (t, v) => {
+    const src = o.createBufferSource(); src.buffer = white;
+    const g = o.createGain(); env(g, t, v, 0.004, 0.22);
+    src.connect(F('highpass',6000)).connect(g).connect(bus); src.start(t, Math.random()*0.6, 0.25);
+  };
+  const clap = t => {
+    [0, 0.012, 0.024].forEach((d,i) => {
+      const src = o.createBufferSource(); src.buffer = white;
+      const bp = F('bandpass', 1400); bp.Q.value = 1.2;
+      const g = o.createGain(); env(g, t+d, i===2 ? 0.16 : 0.1, 0.002, i===2 ? 0.18 : 0.03);
+      src.connect(bp).connect(g).connect(bus); src.start(t+d, Math.random()*0.6, 0.2);
+    });
+  };
+  const bass = (t, m, dur) => {
+    const x = o.createOscillator(); x.type = 'sawtooth'; x.frequency.value = mtof(m);
+    const lp = F('lowpass', 420); lp.Q.value = 4;
+    const g = o.createGain(); env(g, t, 0.11, 0.01, dur);
+    x.connect(lp).connect(g).connect(bus); x.start(t); x.stop(t+dur+0.05);
+  };
+  const pluck = (t, m, v) => {
+    const x = o.createOscillator(); x.type = 'square'; x.frequency.value = mtof(m);
+    const lp = F('lowpass', 3200); lp.frequency.setValueAtTime(3200, t); lp.frequency.exponentialRampToValueAtTime(500, t+0.22);
+    const g = o.createGain(); env(g, t, v, 0.004, 0.28);
+    x.connect(lp).connect(g).connect(arpBus); x.start(t); x.stop(t+0.3);
+  };
+  const pad = (t, chord, dur) => {
+    const lp = F('lowpass', 900); lp.connect(bus);
+    chord.forEach(m => [-6,6].forEach(dt => {
+      const x = o.createOscillator(); x.type = 'sawtooth'; x.frequency.value = mtof(m); x.detune.value = dt;
+      const g = o.createGain(); g.gain.value = 0;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.012, t+0.8);
+      g.gain.setValueAtTime(0.012, t+dur-0.6); g.gain.linearRampToValueAtTime(0.0001, t+dur);
+      x.connect(g).connect(lp); x.start(t); x.stop(t+dur+0.05);
+    }));
+  };
+  const hiPat = [3,-1,-1,2, -1,-1,3,-1, -1,1,-1,-1, 3,-1,2,-1];
+  for (let step=0; step < TOTAL*16; step++){
+    const t = step*s16, b16 = step%16, bar = Math.floor(step/16), ch = prog[Math.floor(bar/2)%4];
+    const full = bar >= INTRO;
+    if (layer==='pad' && b16===0 && bar%2===0) pad(t, ch, spb*8);
+    if (layer==='arp' && (!slow || b16%2===0)) pluck(t, ch[arpPat[b16]] + 12 + (b16>=8 && bar%2===1 ? 12 : 0), slow ? 0.03 : (b16%4===0 ? 0.05 : 0.035));
+    if (layer==='bass' && full){
+      if (slow){ if (b16%4===0) bass(t, ch[0]-12, s16*3.5); }
+      else if (b16%2===0) bass(t, ch[0]-12 + (b16%4===2 ? 12 : 0), s16*1.7);
+    }
+    if (layer==='drums' && full){
+      if (slow){
+        if (b16===0 || b16===8) kick(t);
+        if (b16%8===4) hat(t, 0.025);
+      } else {
+        if (b16%4===0) kick(t);
+        if (b16%4===2) hat(t, 0.05); else if (b16%2===1) hat(t, 0.015);
+      }
+    }
+    if (layer==='top' && full){
+      if (slow){
+        if (b16===8) clap(t);
+        if (b16%8===4) openHat(t, 0.03);
+      } else {
+        if (b16===4 || b16===12) clap(t);
+        if (b16%4===2) openHat(t, 0.045);
+      }
+      if (hiPat[b16] >= 0) pluck(t, ch[hiPat[b16]] + 24, slow ? 0.018 : 0.025);
+    }
+  }
+  const promise = new Promise((res, rej) => {
+    let done = false;
+    o.oncomplete = e => { if (!done){ done = true; res(e.renderedBuffer); } };
+    try { const r = o.startRendering(); if (r && r.then) r.then(b => { if (!done){ done = true; res(b); } }, rej); } catch(e){ rej(e); }
+  });
+  const job = { promise, loopStart: (INTRO+LOOP)*barDur, loopEnd: TOTAL*barDur };
+  promise.catch(() => { delete electroCache[key]; });
+  electroCache[key] = job;
+  return job;
+}
+function stopBGM(){
+  if (!bgmCur) return;
+  const { out, nodes, timers } = bgmCur; bgmCur = null;
+  timers.forEach(clearInterval);
+  const t = ctx.currentTime;
+  out.gain.cancelScheduledValues(t);
+  out.gain.setValueAtTime(out.gain.value, t);
+  out.gain.linearRampToValueAtTime(0, t+1.2);
+  setTimeout(() => { nodes.forEach(n => { try{ n.stop(); }catch(e){} }); try{ out.disconnect(); }catch(e){} }, 1400);
+}
+
+function bell(t, freq, v, arr, light){
+  const parts = light ? [[1,1,1.4],[2,0.3,0.7],[3,0.1,0.4]] : [[1,1,3.2],[2,0.4,2.2],[2.76,0.3,1.6],[5.4,0.12,0.9],[8.93,0.05,0.5]];
+  parts.forEach(([r,a,d]) => {
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = freq*r;
+    const g = ctx.createGain(); g.gain.value = 0;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.5*a*v, t+0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+d);
+    o.connect(g).connect(chimeBus);
+    o.start(t); o.stop(t+d+0.05);
+    if (arr) arr.push(o);
+  });
+}
+function playPattern(key, t, arr){
+  let notes, light = false;
+  if (mode==='sleep'){ light = true; notes = key===2 ? [[880,0,.8]] : [[880,0,.8],[784,.55,.8]]; }
+  else if (key==='end') notes = [[523,0,.8],[659,.35,.8],[784,.7,.8],[1046,1.05,1]];
+  else if (key===2){ light = true; notes = [[1175,0,.9]]; }
+  else if (key===3){ light = true; notes = [[1175,0,.9],[1175,.3,.9]]; }
+  else if (key===5){ light = true; notes = [[1175,0,.9],[1175,.3,.9],[1175,.6,.9]]; }
+  else if (key===10) notes = [[784,0,1]];
+  else if (key===30) notes = [[784,0,1],[659,1.1,1]];
+  else notes = [[784,0,1],[659,1.1,1],[523,2.2,1]];
+  const soft = (typeof key==='number' && key >= 10 && mode!=='sleep') ? 0.65 : 1;
+  notes.forEach(([f,o,v]) => bell(t+o, f, v*soft, arr, light));
+  const last = notes[notes.length-1][1];
+  duck.gain.setTargetAtTime(light ? 0.4 : 0.25, Math.max(ctx.currentTime, t-0.05), 0.06);
+  duck.gain.setTargetAtTime(1, t+last+(light ? 0.6 : 1.8), 0.7);
+}
+function setChimeLevel(){ if (ctx) chimeBus.gain.setTargetAtTime(cvol * (mode==='sleep' ? 0.6 : 1), ctx.currentTime, 0.02); }
+let scheduledAt = {};
+function scheduleChimes(){
+  cancelChimes();
+  setChimeLevel();
+  const el = elapsedMs()/1000, now = ctx.currentTime;
+  const list = milestones().filter(audible).map(m => ({ key:m, at:m*60 }));
+  if (goal>0) list.push({ key:'end', at:goal*60 });
+  scheduledAt = {};
+  list.forEach(({key,at}) => { const dt = at - el; if (dt > 0.05){ scheduledAt[key] = now+dt; playPattern(key, now+dt, scheduled); } });
+}
+function ensureChime(key){
+  if (!ctx || !audible(key)) return;
+  const at = scheduledAt[key];
+  const late = ctx.state !== 'running' || at === undefined || ctx.currentTime < at - 1;
+  if (!late) return;
+  ctx.resume().then(() => { setChimeLevel(); playPattern(key, ctx.currentTime + 0.05, null); scheduleChimes(); if (S.status==='running' && !bgmCur) startBGM(bgm); });
+}
+function cancelChimes(){
+  scheduled.forEach(n => { try{ n.stop(); }catch(e){} });
+  scheduled = [];
+  if (ctx){ const t = ctx.currentTime; duck.gain.cancelScheduledValues(t); duck.gain.setValueAtTime(1, t); }
+}
+
+/* ---------- Screen wake ---------- */
+let wl = null;
+async function lockOn(){ let ok = false; try{ if ('wakeLock' in navigator){ wl = await navigator.wakeLock.request('screen'); ok = true; } }catch(e){} $('#warn').hidden = ok; }
+function lockOff(){ $('#warn').hidden = true; try{ if (wl) wl.release(); }catch(e){} wl = null; }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState==='visible' && S.status==='running'){
+    lockOn();
+    if (ctx && ctx.state==='suspended') ctx.resume().then(() => scheduleChimes());
+  }
+});
+
+/* ---------- UI ---------- */
+function buildTrack(){
+  const scale = goal>0 ? goal : 60;
+  const tr = $('#track');
+  tr.innerHTML = `<div class="zone" style="width:${Math.min(3/scale,1)*100}%"></div><div class="fill" id="fill"></div>`;
+  const marks = milestones().filter(m => m < scale);
+  marks.push(scale);
+  const goalPct = 100;
+  let lastShown = -100;
+  marks.forEach(m => {
+    const pct = m/scale*100, isEnd = m===scale;
+    const show = isEnd || (pct-lastShown >= 9 && goalPct-pct >= 9);
+    if (show) lastShown = pct;
+    const el = document.createElement('div');
+    el.className = 'mk'; el.dataset.m = m; el.style.left = `${pct}%`;
+    const txt = isEnd ? (goal>0 ? `目標 ${label(m)}` : '60分〜') : label(m);
+    el.innerHTML = show ? `<span>${txt}</span>` : '';
+    tr.appendChild(el);
+  });
+}
+function setPressed(){
+  const busy = (S.status==='running' || S.status==='paused');
+  document.body.classList.toggle('sleep', mode==='sleep');
+  document.body.classList.toggle('chime-off', !chimeOn);
+  document.querySelectorAll('#chimeToggle .chip').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.chime==='on') === chimeOn)));
+  document.querySelectorAll('#modeChips .chip').forEach(b => { b.setAttribute('aria-pressed', String(b.dataset.mode === mode)); b.disabled = busy; });
+  document.querySelectorAll('#goalChips .chip').forEach(b => {
+    b.setAttribute('aria-pressed', String(!endMode && +b.dataset.goal === goal));
+    b.disabled = (S.status==='running' || S.status==='paused');
+  });
+  $('#autoChip').setAttribute('aria-pressed', String(autoOn));
+  document.querySelectorAll('#cmodeChips .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.cmode === cmode)));
+  const gi = $('#goalInput');
+  if (document.activeElement !== gi) gi.value = goal > 0 ? Math.round(goal) : '';
+  const ei = $('#endInput');
+  if (document.activeElement !== ei) ei.value = endMode ? endAt : '';
+  ei.disabled = busy;
+  gi.placeholder = goal > 0 ? '' : 'なし';
+  [gi, $('#goalMinus'), $('#goalPlus')].forEach(el => el.disabled = busy);
+  document.querySelectorAll('#bgmChips .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.bgm === bgm)));
+}
+function renderActions(){
+  const a = $('#actions');
+  const map = {
+    idle:   [['開始','start',true]],
+    running:[['一時停止','pause',true],['終了','stop',false]],
+    paused: [['再開','resume',true],['終了','stop',false]],
+    done:   [['もう一度','reset',true]]
+  };
+  a.innerHTML = '';
+  map[S.status].forEach(([txt,act,pri]) => {
+    const b = document.createElement('button');
+    b.className = 'btn' + (pri ? ' primary' : ''); b.textContent = txt;
+    b.addEventListener('click', actions[act]);
+    a.appendChild(b);
+  });
+}
+let toastTimer;
+function toast(text){
+  const t = $('#toast'); t.textContent = text; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+}
+function renderToday(){ $('#today').textContent = `今日 ${label(store.get(todayKey(),0)) || '0分'}`; }
+
+function message(sec){
+  const min = sec/60;
+  if (mode==='sleep'){
+    if (S.status==='idle') return 'BGMを選んで「開始」を押してください。時間の設定はなく、BGMが静かに流れ続けます。';
+    if (S.status==='paused') return '一時停止中です。';
+    if (S.status==='done') return '睡眠モードを終了しました。';
+    if (min < 2) return '目を閉じて、ゆっくり呼吸しましょう。';
+    if (min < 15) return '力を抜いて、そのまま休みましょう。';
+    return 'ここから先は通知はありません。おやすみなさい。';
+  }
+  if (S.status==='idle') return '目標時間とBGMを選んで「開始」を押してください。まずは最初の3分だけを目指しましょう。';
+  if (S.status==='paused') return '一時停止中です。準備ができたら「再開」を押してください。';
+  if (S.status==='done'){ const m = Math.floor(S.finalMs/60000); return m >= 1 ? `おつかれさまでした。${label(m)}集中しました。` : 'おつかれさまでした。'; }
+  if (S.goalReached) return '目標達成です。続けるなら、このままどうぞ。区切りのいいところで「終了」を押してください。';
+  if (min < 3) return 'まずは3分だけ。ここを越えると、ぐっと楽になります。';
+  if (min < 5) return '最初の山を越えました。このまま続けましょう。';
+  if (min < 10) return '5分経過。リズムに乗ってきました。';
+  if (min < 30) return '10分経過。集中が深まってきています。';
+  if (min < 60) return '30分経過。いいペースです。';
+  return '1時間を越えました。ひと息入れるのも大切です。';
+}
+
+let autoOn = store.get('auto', true);
+const PH = {
+  focus: [{at:0,  tone:14000, vol:1,   st:{pad:.6, arp:1,  bass:1,  drums:1, top:1}, name:'入り（アゲ・フル編成）'},
+          {at:3,  tone:7000,  vol:.95, st:{pad:.8, arp:1,  bass:1,  drums:1, top:0}, name:'乗ってきた（飾りを外す）'},
+          {at:10, tone:2200,  vol:.85, st:{pad:1,  arp:.6, bass:.8, drums:0, top:0}, name:'深い集中（ドラムが消える）'},
+          {at:30, tone:1200,  vol:.75, st:{pad:1,  arp:.2, bass:.5, drums:0, top:0}, name:'維持（和音中心で静か）'}],
+  sleep: [{at:0,  tone:3000,  vol:1,   st:{pad:1,  arp:.6, bass:.6, drums:.4, top:0}, name:'入眠'},
+          {at:2,  tone:1600,  vol:.8,  st:{pad:1,  arp:.3, bass:.4, drums:0, top:0}, name:'ゆったり'},
+          {at:15, tone:800,   vol:.55, st:{pad:1,  arp:0,  bass:.2, drums:0, top:0}, name:'静か'}]
+};
+let curPhase = -1;
+function phaseIdx(min){ let i = 0; PH[mode].forEach((p,k) => { if (min >= p.at) i = k; }); return i; }
+function applyPhase(i, instant){
+  curPhase = i;
+  const p = autoOn ? PH[mode][i] : { tone:20000, vol:1, st:STD_STEMS };
+  curStems = { ...p.st };
+  if (!ctx) return;
+  const t = ctx.currentTime, tc = instant ? 0.01 : 1.5;
+  tone.frequency.cancelScheduledValues(t); tone.frequency.setTargetAtTime(p.tone, t, tc);
+  phaseGain.gain.cancelScheduledValues(t); phaseGain.gain.setTargetAtTime(p.vol, t, tc);
+  if (bgmCur && bgmCur.stems) STEMS.forEach(k => { const g = bgmCur.stems[k].gain; g.cancelScheduledValues(t); g.setTargetAtTime(curStems[k], t, tc); });
+}
+function keepAlive(){
+  if (!ctx || S.status!=='running') return;
+  if (ctx.state !== 'running'){ ctx.resume().then(() => { scheduleChimes(); if (!bgmCur) startBGM(bgm); }).catch(()=>{}); }
+  else if (!bgmCur && bgm !== 'none') startBGM(bgm);
+}
+function render(){
+  keepAlive();
+  $('#nowClock').textContent = `現在 ${hhmm(Date.now())}`;
+  if (endMode && S.status==='idle' && mode!=='sleep'){
+    const m = minutesUntil(endAt);
+    if (m >= 1 && m <= 720){
+      const rebuild = Math.round(m) !== Math.round(goal);
+      goal = m;
+      if (rebuild){ buildTrack(); setPressed(); }
+    }
+  }
+  if (S.status==='running'){ const i = phaseIdx(elapsedMs()/60000); if (i !== curPhase) applyPhase(i, false); }
+  const ph = $('#phase');
+  const showPh = autoOn && (S.status==='running' || S.status==='paused') && curPhase >= 0;
+  ph.hidden = !showPh;
+  if (showPh) ph.textContent = `BGM：${PH[mode][curPhase].name}`;
+  const ms = elapsedMs();
+  if (S.status==='running' && goal>0 && !S.goalReached && ms >= goal*60000){ S.goalReached = true; toast('目標時間に到達しました'); ensureChime('end'); }
+  const sec = Math.floor(ms/1000);
+  $('#time').textContent = fmt(sec);
+
+  let sub = '';
+  if (S.status==='idle') sub = mode==='sleep' ? '時間の設定はありません' : (goal>0 ? `今始めると <strong>${hhmm(Date.now()+goal*60000)}</strong> に終わります` : '時間を決めずに続けます');
+  else if (S.status==='running' && S.goalReached) sub = `目標達成　<strong>+${fmtDur(ms-goal*60000)}</strong>`;
+  else if (S.status==='running') sub = goal>0 ? `終了予定 <strong>${hhmm(Date.now() + goal*60000 - ms)}</strong>　残り ${Math.ceil((goal*60000-ms)/60000)}分` : `開始 ${hhmm(S.realStart)}`;
+  else if (S.status==='paused' && S.goalReached) sub = `一時停止中　+${fmtDur(ms-goal*60000)}`;
+  else if (S.status==='paused') sub = goal>0 ? `残り ${Math.ceil((goal*60000-ms)/60000)}分` : `開始 ${hhmm(S.realStart)}`;
+  else sub = `${hhmm(S.realStart)} 〜 ${hhmm(S.endReal)}`;
+  $('#sub').innerHTML = sub;
+  $('#msg').textContent = message(sec);
+  renderResult();
+
+  const scale = (goal>0 ? goal : 60) * 60;
+  const fill = $('#fill'); if (fill) fill.style.width = `${Math.min(sec/scale,1)*100}%`;
+  document.querySelectorAll('.mk').forEach(el => el.classList.toggle('on', sec >= +el.dataset.m*60));
+
+  if (S.status==='running'){
+    milestones().forEach(m => { if (sec >= m*60 && !S.fired.has(m)){ S.fired.add(m); toast(`${label(m)}経過`); ensureChime(m); } });
+    document.title = `${fmt(sec)} ${mode==='sleep' ? '睡眠中' : '集中中'}`;
+  } else document.title = '集中タイマー';
+  const night = $('#night');
+  night.hidden = !(mode==='sleep' && S.status==='running' && !peek);
+  $('#nightTime').textContent = fmt(sec);
+}
+
+function finish(){
+  S.finalMs = elapsedMs();
+  S.endReal = Date.now();
+  cancelChimes(); stopBGM(); lockOff();
+  const add = Math.floor(S.finalMs/60000);
+  if (add >= 1 && mode!=='sleep') store.set(todayKey(), store.get(todayKey(),0) + add);
+  S.status = 'done';
+  renderToday(); setPressed(); renderActions(); render();
+}
+function renderResult(){
+  const r = $('#result');
+  if (S.status !== 'done'){ r.hidden = true; return; }
+  r.hidden = false;
+  let h = '';
+  if (S.goalUsed > 0){
+    const diff = S.finalMs - S.goalUsed*60000;
+    const sign = diff >= 0 ? '+' : '−';
+    const note = Math.abs(diff) < 30000 ? 'ほぼ目標どおりです' : (diff > 0 ? '目標より長く続きました' : '目標より早く終えました');
+    h += `<dt>目標</dt><dd>${label(S.goalUsed)}</dd>`;
+    h += `<dt>実際</dt><dd>${fmtDur(S.finalMs)}</dd>`;
+    h += `<dt>差</dt><dd><strong>${sign}${fmtDur(diff)}</strong><small>${note}</small></dd>`;
+    h += `<dt>終了時刻</dt><dd>予定 ${hhmm(S.plannedEnd)} → 押した時刻 ${hhmm(S.endReal)}</dd>`;
+  } else {
+    h += `<dt>実際</dt><dd>${fmtDur(S.finalMs)}</dd>`;
+    h += `<dt>時刻</dt><dd>${hhmm(S.realStart)} → ${hhmm(S.endReal)}</dd>`;
+  }
+  r.innerHTML = h;
+}
+const actions = {
+  start(){
+    ensureCtx();
+    S.status='running'; S.startTs = S.realStart = Date.now(); S.pausedMs = 0; S.fired = new Set();
+    if (endMode && mode!=='sleep'){ const m = minutesUntil(endAt); if (m >= 1 && m <= 720) goal = m; }
+    S.goalReached = false; S.goalUsed = goal; S.plannedEnd = S.realStart + goal*60000;
+    applyPhase(0, true);
+    startBGM(bgm); scheduleChimes(); lockOn();
+    setPressed(); renderActions(); render();
+  },
+  pause(){
+    S.status='paused'; S.pauseStart = Date.now();
+    cancelChimes(); stopBGM(); lockOff();
+    setPressed(); renderActions(); render();
+  },
+  resume(){
+    ensureCtx();
+    S.pausedMs += Date.now() - S.pauseStart; S.status='running';
+    applyPhase(phaseIdx(elapsedMs()/60000), true);
+    startBGM(bgm); scheduleChimes(); lockOn();
+    setPressed(); renderActions(); render();
+  },
+  stop(){ finish(); },
+  reset(){ S.status='idle'; S.goalReached = false; setPressed(); renderActions(); render(); }
+};
+
+function setGoal(v, fromEnd){
+  if (!fromEnd){ endMode = false; store.set('endMode', false); }
+  goal = fromEnd ? v : Math.max(0, Math.min(720, Math.round(v) || 0)); store.set('goal', Math.round(goal));
+  if (S.status==='done') S.status='idle';
+  buildTrack(); setPressed(); renderActions(); render();
+}
+document.querySelectorAll('#goalChips .chip').forEach(b => b.addEventListener('click', () => setGoal(+b.dataset.goal)));
+$('#goalInput').addEventListener('change', e => { const v = parseInt(e.target.value, 10); setGoal(v > 0 ? v : 0); });
+$('#goalInput').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+$('#goalMinus').addEventListener('click', () => setGoal(goal > 1 ? goal - 1 : 1));
+$('#endInput').addEventListener('change', e => {
+  const v = e.target.value;
+  if (!v){ endMode = false; store.set('endMode', false); setPressed(); return; }
+  const m = minutesUntil(v);
+  if (m < 1){ toast('1分以上先の時刻を選んでください'); return; }
+  if (m > 720){ toast('12時間以内の時刻を選んでください'); setPressed(); return; }
+  endMode = true; endAt = v; store.set('endMode', true); store.set('endAt', v);
+  setGoal(m, true);
+});
+$('#goalPlus').addEventListener('click', () => setGoal(goal + 1));
+function warm(k){ try{ if (k==='electro' || k==='electroSlow') STEMS.forEach(st => renderElectro(k==='electroSlow', st)); }catch(e){} }
+warm(bgm);
+document.querySelectorAll('#bgmChips .chip').forEach(b => b.addEventListener('click', () => {
+  bgm = b.dataset.bgm; warm(bgm); store.set('bgm', bgm); setPressed();
+  if (S.status==='running') startBGM(bgm);
+}));
+const volEl = $('#vol'); volEl.value = vol;
+volEl.addEventListener('input', () => {
+  vol = +volEl.value; store.set('vol', vol);
+  if (ctx) master.gain.setTargetAtTime(vol, ctx.currentTime, 0.05);
+});
+document.querySelectorAll('#modeChips .chip').forEach(b => b.addEventListener('click', () => {
+  mode = b.dataset.mode; store.set('mode', mode);
+  goal = mode==='sleep' ? 0 : store.get('goal', 30);
+  if (S.status==='done') S.status='idle';
+  buildTrack(); setPressed(); renderActions(); render();
+}));
+$('#night').addEventListener('click', () => {
+  peek = true; render();
+  clearTimeout(peekTimer); peekTimer = setTimeout(() => { peek = false; render(); }, 10000);
+});
+$('#autoChip').addEventListener('click', () => {
+  autoOn = !autoOn; store.set('auto', autoOn); setPressed();
+  if (S.status==='running' || S.status==='paused') applyPhase(phaseIdx(elapsedMs()/60000), false);
+  render();
+});
+document.querySelectorAll('#cmodeChips .chip').forEach(b => b.addEventListener('click', () => {
+  cmode = b.dataset.cmode; store.set('cmode', cmode); setPressed();
+  if (S.status==='running' && ctx) scheduleChimes();
+}));
+document.querySelectorAll('#chimeToggle .chip').forEach(b => b.addEventListener('click', () => {
+  chimeOn = b.dataset.chime === 'on'; store.set('chimeOn', chimeOn); setPressed();
+  if (S.status==='running' && ctx) scheduleChimes();
+}));
+const cvolEl = $('#cvol'); cvolEl.value = cvol;
+cvolEl.addEventListener('input', () => { cvol = +cvolEl.value; store.set('cvol', cvol); setChimeLevel(); });
+$('#testChime').addEventListener('click', () => { ensureCtx(); setChimeLevel(); playPattern(mode==='sleep' ? 2 : 10, ctx.currentTime+0.05, null); });
+
+buildTrack(); setPressed(); renderActions(); renderToday(); render();
+setInterval(render, 250);
+})();
+</script>
+</body>
+</html>
